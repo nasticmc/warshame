@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const port = Number(process.env.PORT || 8080);
+const port = Number(process.env.PORT || 8180);
 
 const mqttUrl = process.env.MESHCORE_MQTT_URL || '';
 const mqttTopic = process.env.MESHCORE_MQTT_TOPIC || 'meshcore/#';

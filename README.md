@@ -13,7 +13,9 @@ Web app + backend service that subscribes to MeshCore MQTT traffic, decodes pack
 
 Set these environment variables on the backend service:
 
-- `MESHCORE_MQTT_URL` (required for live ingestion)
+- `MESHCORE_MQTT_URL` (optional; full URL takes precedence when set)
+- `MQTT_BROKER` / `MQTT_PORT` / `MQTT_PROTOCOL` / `MQTT_PATH` (used when `MESHCORE_MQTT_URL` is not set)
+- `MQTT_USERNAME` / `MQTT_PASSWORD` (optional MQTT auth credentials)
 - `MESHCORE_MQTT_TOPIC` (default: `meshcore/#`)
 - `MESHCORE_WARDRIVE_CHANNEL_KEYS` (comma-separated known public keys/hashes)
 - `MARKER_LOG_PATH` (default: `./data/markers-log.json`)
@@ -36,4 +38,4 @@ docker compose up --build -d
 
 This runs the app on <http://localhost:8080> and persists markers in `./data/markers-log.json`.
 
-MQTT defaults in `docker-compose.yml` are set to the mc-stats broker/topic values. You can override keys and broker settings by editing the compose file.
+`docker-compose.yml` now defaults to the provided broker/credentials (`mqtt.eastmesh.au:8001` with username/password auth) and MeshCore topic values. You can override any of these settings as needed.

@@ -7,8 +7,13 @@ services:
       - "8110:8080"
     environment:
       PORT: "8080"
-      # MQTT defaults aligned with mc-stats
-      MESHCORE_MQTT_URL: "ws://mqtt.eastmesh.au:8083/mqtt"
+      # MQTT settings (compatible with explicit broker/port credentials)
+      MQTT_BROKER: "mqtt.eastmesh.au"
+      MQTT_PORT: "8001"
+      MQTT_USERNAME: "nastic"
+      MQTT_PASSWORD: "nastic"
+      MQTT_PROTOCOL: "ws"
+      MQTT_PATH: "/mqtt"
       MESHCORE_MQTT_TOPIC: "meshcore/MEL/#"
       MESHCORE_WARDRIVE_CHANNEL_KEYS: "e3c26491e9cd321e3a6be50d57d54acf"
       MARKER_LOG_PATH: "/app/data/markers-log.json"

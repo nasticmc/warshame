@@ -4,6 +4,8 @@ const channelForm = document.getElementById('channelForm');
 const channelKeyInput = document.getElementById('channelKeyInput');
 const channelStatus = document.getElementById('channelStatus');
 const channelKeysList = document.getElementById('channelKeys');
+const decodedMsgCountEl = document.getElementById('decodedMsgCount');
+const decodedMsgList = document.getElementById('decodedMsgList');
 
 const map = L.map('map').setView([-37.8136, 144.9631], 11);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -83,6 +85,24 @@ async function refreshMarkers() {
   syncMarkers(data.markers || []);
 }
 
+function renderMessages(msgs) {
+  decodedMsgList.innerHTML = '';
+  msgs.slice(0, 250).forEach((m) => {
+    const item = document.createElement('li');
+    item.className = 'message-item';
+    item.innerHTML = `<strong>${m.user}</strong><span>${m.time}</span><small>${m.topic}</small><p class="msg-text">${m.message}</p>`;
+    decodedMsgList.appendChild(item);
+  });
+  decodedMsgCountEl.textContent = String(msgs.length);
+}
+
+async function refreshMessages() {
+  const response = await fetch('/api/messages');
+  if (!response.ok) return;
+  const data = await response.json();
+  renderMessages(data.messages || []);
+}
+
 async function refreshConfig() {
   const response = await fetch('/api/config');
   if (!response.ok) return;
@@ -113,11 +133,11 @@ channelForm.addEventListener('submit', async (event) => {
 
 async function refresh() {
   try {
-    await Promise.all([refreshMarkers(), refreshConfig()]);
+    await Promise.all([refreshMarkers(), refreshConfig(), refreshMessages()]);
   } catch {
     channelStatus.textContent = 'Connection issue while refreshing data.';
   }
 }
 
 refresh();
-setInterval(refreshMarkers, 5000);
+setInterval(() => Promise.all([refreshMarkers(), refreshMessages()]), 5000);

@@ -96,6 +96,7 @@ function extractPacketHex(parsed) {
   }
 
   const candidates = [
+    parsed.data?.raw,
     parsed.data?.packet,
     parsed.data?.packetHex,
     parsed.data?.payloadHex,

@@ -1,41 +1,39 @@
-# Meshcore Wardriving Map
+# MeshCore MQTT Map
 
-Web app + backend service that subscribes to MeshCore MQTT traffic, decodes packets, and displays wardriving markers on a Melbourne-centered map.
+A single-page web app + Node backend that:
 
-## What changed
+- connects to a MeshCore MQTT broker,
+- logs every MQTT packet to the server console for debugging,
+- decodes packets with `meshcore-decoder`,
+- filters packets by configurable channel keys,
+- stores location-based markers on disk,
+- renders saved markers on a Leaflet map.
 
-- MQTT connection is backend-only (no broker/topic controls in the browser UI).
-- Left panel shows a clickable list of recent messages/markers.
-- Marker data is persisted to a log file and retained for 7 days.
-- Old entries are automatically cleaned up on startup and hourly.
+## Configure
 
-## Runtime configuration
+Environment variables:
 
-Set these environment variables on the backend service:
+- `PORT` (default `8080`)
+- `MESHCORE_MQTT_URL` (full URL, optional)
+- `MQTT_BROKER`, `MQTT_PORT`, `MQTT_PROTOCOL`, `MQTT_PATH` (used if `MESHCORE_MQTT_URL` is not set)
+- `MQTT_USERNAME`, `MQTT_PASSWORD` (optional)
+- `MESHCORE_MQTT_TOPIC` (default `meshcore/#`)
+- `MESHCORE_WARDRIVE_CHANNEL_KEYS` (comma-separated initial channel keys)
+- `MARKER_LOG_PATH` (default `./data/markers-log.json`)
+- `CONFIG_PATH` (default `./data/config.json`)
 
-- `MESHCORE_MQTT_URL` (optional; full URL takes precedence when set)
-- `MQTT_BROKER` / `MQTT_PORT` / `MQTT_PROTOCOL` / `MQTT_PATH` (used when `MESHCORE_MQTT_URL` is not set)
-- `MQTT_USERNAME` / `MQTT_PASSWORD` (optional MQTT auth credentials)
-- `MESHCORE_MQTT_TOPIC` (default: `meshcore/#`)
-- `MESHCORE_WARDRIVE_CHANNEL_KEYS` (comma-separated known public keys/hashes)
-- `MARKER_LOG_PATH` (default: `./data/markers-log.json`)
-- `PORT` (default: `8080`)
-
-## Local run
+## Run
 
 ```bash
 npm install
 npm start
 ```
 
-Open <http://localhost:8080>.
+Open: <http://localhost:8080>
 
-## Docker Compose
+## UI behavior
 
-```bash
-docker compose up --build -d
-```
-
-This runs the app on <http://localhost:8080> and persists markers in `./data/markers-log.json`.
-
-`docker-compose.yml` now defaults to the provided broker/credentials (`mqtt.eastmesh.au:8001` with username/password auth) and MeshCore topic values. You can override any of these settings as needed.
+- Add/remove decoder channel keys in the left panel.
+- Marker list is persisted and restored from disk.
+- Clicking a marker in the list centers the map.
+- MQTT debug logs are printed in the server console for each received packet.

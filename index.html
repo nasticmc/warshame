@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Meshcore Wardriving Map</title>
+    <title>MeshCore Live Map</title>
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -14,19 +14,31 @@
   </head>
   <body>
     <header>
-      <h1>Meshcore Wardriving Map</h1>
-      <p>Live wardriving markers and recent messages.</p>
+      <h1>MeshCore Live Packet Map</h1>
+      <p>MQTT packets are decoded server-side and shown as location markers.</p>
     </header>
 
     <main>
       <aside class="panel">
-        <h2>Messages</h2>
-        <p><strong id="messageCount">0</strong> markers (last 7 days)</p>
-        <ul id="messageList" class="message-list"></ul>
+        <section class="card">
+          <h2>Decoder channel key</h2>
+          <form id="channelForm" class="channel-form">
+            <input id="channelKeyInput" type="text" placeholder="Enter channel key / hash" required />
+            <button type="submit">Save key</button>
+          </form>
+          <p id="channelStatus" class="muted"></p>
+          <ul id="channelKeys" class="chip-list"></ul>
+        </section>
+
+        <section class="card">
+          <h2>Saved markers</h2>
+          <p><strong id="messageCount">0</strong> markers saved</p>
+          <ul id="messageList" class="message-list"></ul>
+        </section>
       </aside>
 
       <section>
-        <div id="map" aria-label="wardriving map"></div>
+        <div id="map" aria-label="map"></div>
       </section>
     </main>
 

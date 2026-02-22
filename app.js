@@ -1,5 +1,9 @@
 const countElement = document.getElementById('messageCount');
 const messageList = document.getElementById('messageList');
+const channelForm = document.getElementById('channelForm');
+const channelKeyInput = document.getElementById('channelKeyInput');
+const channelStatus = document.getElementById('channelStatus');
+const channelKeysList = document.getElementById('channelKeys');
 
 const map = L.map('map').setView([-37.8136, 144.9631], 11);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -10,9 +14,32 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 const markersLayer = L.layerGroup().addTo(map);
 const rendered = new Map();
 
+function renderChannelKeys(keys) {
+  channelKeysList.innerHTML = '';
+  keys.forEach((key) => {
+    const item = document.createElement('li');
+    item.innerHTML = `<code>${key}</code>`;
+
+    const btn = document.createElement('button');
+    btn.textContent = 'Remove';
+    btn.className = 'delete-btn';
+    btn.addEventListener('click', async () => {
+      await fetch('/api/channel-keys', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key })
+      });
+      await refreshConfig();
+    });
+
+    item.appendChild(btn);
+    channelKeysList.appendChild(item);
+  });
+}
+
 function renderList(markers) {
   messageList.innerHTML = '';
-  markers.slice(0, 200).forEach((m) => {
+  markers.slice(0, 250).forEach((m) => {
     const item = document.createElement('li');
     item.className = 'message-item';
     item.innerHTML = `<strong>${m.user}</strong><span>${m.time}</span><small>${m.topic}</small>`;
@@ -49,16 +76,48 @@ function syncMarkers(markers) {
   renderList(markers);
 }
 
+async function refreshMarkers() {
+  const response = await fetch('/api/markers');
+  if (!response.ok) return;
+  const data = await response.json();
+  syncMarkers(data.markers || []);
+}
+
+async function refreshConfig() {
+  const response = await fetch('/api/config');
+  if (!response.ok) return;
+  const data = await response.json();
+  renderChannelKeys(data.channelKeys || []);
+}
+
+channelForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const key = channelKeyInput.value.trim();
+  if (!key) return;
+
+  const response = await fetch('/api/channel-keys', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key })
+  });
+
+  if (!response.ok) {
+    channelStatus.textContent = 'Could not save channel key.';
+    return;
+  }
+
+  channelKeyInput.value = '';
+  channelStatus.textContent = `Saved key ${key}`;
+  await refreshConfig();
+});
+
 async function refresh() {
   try {
-    const response = await fetch('/api/markers');
-    if (!response.ok) return;
-    const data = await response.json();
-    syncMarkers(data.markers || []);
+    await Promise.all([refreshMarkers(), refreshConfig()]);
   } catch {
-    // ignore transient network errors
+    channelStatus.textContent = 'Connection issue while refreshing data.';
   }
 }
 
 refresh();
-setInterval(refresh, 10000);
+setInterval(refreshMarkers, 5000);

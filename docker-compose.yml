@@ -15,7 +15,7 @@ services:
       MQTT_PROTOCOL: "ws"
       MQTT_PATH: "/mqtt"
       MESHCORE_MQTT_TOPIC: "meshcore/MEL/#"
-      MESHCORE_WARDRIVE_CHANNEL_KEYS: "e3c26491e9cd321e3a6be50d57d54acf"
+      MESHCORE_WARDRIVE_CHANNEL_KEYS: "e3c26491e9cd321e3a6be50d57d54acf,43641c69528b8852ad4e12495b4d76bb"
       MARKER_LOG_PATH: "/app/data/markers-log.json"
     volumes:
       - ./data:/app/data

@@ -165,6 +165,39 @@ function locationFromDecoded(decodedPacket) {
   return null;
 }
 
+// Parse a lat/lon coordinate pair from free-form text.
+// Supported separators: comma, semicolon, slash, pipe, or whitespace.
+// Validates the parsed numbers are within lat [-90,90] / lon [-180,180] ranges.
+// Returns { lat, lon, fullMatch, index } on success, or null.
+function locationFromMessage(text) {
+  if (!text || typeof text !== 'string') return null;
+
+  // Match two signed decimals (up to 3 integer digits) with a flexible separator.
+  const re = /(-?\d{1,3}(?:\.\d+)?)(?:\s*[,;/|]\s*|\s+)(-?\d{1,3}(?:\.\d+)?)/g;
+
+  let match;
+  while ((match = re.exec(text)) !== null) {
+    const lat = Number(match[1]);
+    const lon = Number(match[2]);
+    if (
+      Number.isFinite(lat) && Number.isFinite(lon) &&
+      lat >= -90 && lat <= 90 &&
+      lon >= -180 && lon <= 180
+    ) {
+      return { lat, lon, fullMatch: match[0], index: match.index };
+    }
+  }
+
+  return null;
+}
+
+// Remove the coordinate substring from a message and clean up surrounding whitespace.
+function stripLocationText(text, index, fullMatch) {
+  return (text.slice(0, index) + text.slice(index + fullMatch.length))
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function getTime(value) {
   // Decoder timestamps are Unix seconds (number); Date() expects milliseconds.
   const ms = typeof value === 'number' ? value * 1000 : value;
@@ -272,14 +305,40 @@ function startMqtt() {
       });
       console.log('[MQTT marker saved]', { topic, lat: location.lat, lon: location.lon });
     } else if (payload.decrypted) {
-      // GroupText: no location but successfully decrypted — save as a message.
-      pushMessage({
-        user: payload.decrypted.sender || 'unknown-user',
-        time: getTime(payload.decrypted.timestamp),
-        topic,
-        message: payload.decrypted.message || ''
-      });
-      console.log('[MQTT grouptext saved]', { topic, user: payload.decrypted.sender });
+      // GroupText: no decoded location — check the message text for a coordinate pair.
+      const msgText = payload.decrypted.message || '';
+      const msgLocation = locationFromMessage(msgText);
+
+      if (msgLocation) {
+        pushMarker({
+          lat: msgLocation.lat,
+          lon: msgLocation.lon,
+          user: payload.decrypted.sender || 'unknown-user',
+          time: getTime(payload.decrypted.timestamp),
+          topic
+        });
+        console.log('[MQTT marker from message]', { topic, lat: msgLocation.lat, lon: msgLocation.lon });
+
+        // Save any remaining text after stripping the coordinate substring.
+        const strippedText = stripLocationText(msgText, msgLocation.index, msgLocation.fullMatch);
+        if (strippedText) {
+          pushMessage({
+            user: payload.decrypted.sender || 'unknown-user',
+            time: getTime(payload.decrypted.timestamp),
+            topic,
+            message: strippedText
+          });
+          console.log('[MQTT grouptext (coords stripped) saved]', { topic, user: payload.decrypted.sender });
+        }
+      } else {
+        pushMessage({
+          user: payload.decrypted.sender || 'unknown-user',
+          time: getTime(payload.decrypted.timestamp),
+          topic,
+          message: msgText
+        });
+        console.log('[MQTT grouptext saved]', { topic, user: payload.decrypted.sender });
+      }
     } else {
       console.log('[MQTT ignored] no location and no decrypted content');
     }

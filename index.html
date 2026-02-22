@@ -14,22 +14,17 @@
   </head>
   <body>
     <header>
-      <h1>MeshCore Live Packet Map</h1>
-      <p>MQTT packets are decoded server-side and shown as location markers.</p>
+      <div class="header-row">
+        <div>
+          <h1>MeshCore Live Packet Map</h1>
+          <p>MQTT packets are decoded server-side and shown as location markers.</p>
+        </div>
+        <nav><a href="/channels" class="nav-link">Channels</a></nav>
+      </div>
     </header>
 
     <main>
       <aside class="panel">
-        <section class="card">
-          <h2>Decoder channel key</h2>
-          <form id="channelForm" class="channel-form">
-            <input id="channelKeyInput" type="text" placeholder="Enter channel key / hash" required />
-            <button type="submit">Save key</button>
-          </form>
-          <p id="channelStatus" class="muted"></p>
-          <ul id="channelKeys" class="chip-list"></ul>
-        </section>
-
         <section class="card">
           <h2>Saved markers</h2>
           <p><strong id="messageCount">0</strong> markers saved</p>

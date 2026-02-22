@@ -358,6 +358,10 @@ startMqtt();
 app.use(express.json());
 app.use(express.static(__dirname));
 
+app.get('/channels', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'channels.html'));
+});
+
 app.get('/api/markers', (_req, res) => {
   cleanupOldMarkers();
   res.json({ markers: markers.slice().sort((a, b) => new Date(b.time) - new Date(a.time)) });

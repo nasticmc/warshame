@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Channels — MeshCore Live Map</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <div class="header-row">
+        <div>
+          <h1>Channel Configuration</h1>
+          <p>Manage decoder channel keys used to decrypt incoming packets.</p>
+        </div>
+        <nav><a href="/" class="nav-link">← Back to map</a></nav>
+      </div>
+    </header>
+
+    <main class="page-main">
+      <section class="card">
+        <h2>Decoder channel key</h2>
+        <form id="channelForm" class="channel-form">
+          <input id="channelKeyInput" type="text" placeholder="Enter channel key / hash" required />
+          <button type="submit">Save key</button>
+        </form>
+        <p id="channelStatus" class="muted"></p>
+        <ul id="channelKeys" class="chip-list"></ul>
+      </section>
+    </main>
+
+    <script src="channels.js"></script>
+  </body>
+</html>

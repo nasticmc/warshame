@@ -9,7 +9,7 @@ services:
       PORT: "8080"
       # MQTT settings (compatible with explicit broker/port credentials)
       MQTT_BROKER: "mqtt.eastmesh.au"
-      MQTT_PORT: "8001"
+      MQTT_PORT: "8083"
       MQTT_USERNAME: "nastic"
       MQTT_PASSWORD: "nastic"
       MQTT_PROTOCOL: "ws"

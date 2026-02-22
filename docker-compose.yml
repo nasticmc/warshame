@@ -8,7 +8,7 @@ services:
     environment:
       PORT: "8080"
       # MQTT defaults aligned with mc-stats
-      MESHCORE_MQTT_URL: "wss://mqtt.eastmesh.au:8083/mqtt"
+      MESHCORE_MQTT_URL: "ws://mqtt.eastmesh.au:8083/mqtt"
       MESHCORE_MQTT_TOPIC: "meshcore/MEL/#"
       MESHCORE_WARDRIVE_CHANNEL_KEYS: "e3c26491e9cd321e3a6be50d57d54acf"
       MARKER_LOG_PATH: "/app/data/markers-log.json"

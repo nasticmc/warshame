@@ -28,16 +28,12 @@ npm start
 
 Open <http://localhost:8080>.
 
-## Docker run
+## Docker Compose
 
 ```bash
-docker build -t meshcore-wardrive-map .
-docker run --rm -p 8080:8080 \
-  -e MESHCORE_MQTT_URL="wss://your-broker:8083/mqtt" \
-  -e MESHCORE_MQTT_TOPIC="meshcore/#" \
-  -e MESHCORE_WARDRIVE_CHANNEL_KEYS="pubkey1,pubkey2" \
-  -v $(pwd)/data:/app/data \
-  meshcore-wardrive-map
+docker compose up --build -d
 ```
 
-This keeps a persistent marker log in `data/markers-log.json` with 7-day retention.
+This runs the app on <http://localhost:8080> and persists markers in `./data/markers-log.json`.
+
+MQTT defaults in `docker-compose.yml` are set to the mc-stats broker/topic values. You can override keys and broker settings by editing the compose file.

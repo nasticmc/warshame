@@ -114,6 +114,13 @@ button:hover {
   font-size: 0.82rem;
 }
 
+.msg-text {
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  margin: 0.2rem 0 0;
+  word-break: break-word;
+}
+
 .delete-btn {
   background: #7f1d1d;
   border-color: #b91c1c;

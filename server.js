@@ -22,10 +22,12 @@ const mqttPassword = process.env.MQTT_PASSWORD || '';
 
 const dataDir = path.join(__dirname, 'data');
 const markerLogPath = process.env.MARKER_LOG_PATH || path.join(dataDir, 'markers-log.json');
+const messagesLogPath = process.env.MESSAGES_LOG_PATH || path.join(dataDir, 'messages-log.json');
 const configPath = process.env.CONFIG_PATH || path.join(dataDir, 'config.json');
 const retentionMs = 7 * 24 * 60 * 60 * 1000;
 
 fs.mkdirSync(path.dirname(markerLogPath), { recursive: true });
+fs.mkdirSync(path.dirname(messagesLogPath), { recursive: true });
 fs.mkdirSync(path.dirname(configPath), { recursive: true });
 
 function loadJsonArray(filePath) {
@@ -58,11 +60,16 @@ function loadConfig() {
 }
 
 let markers = loadJsonArray(markerLogPath);
+let messages = loadJsonArray(messagesLogPath);
 const config = loadConfig();
 let channelKeys = new Set(config.channelKeys);
 
 function persistMarkers() {
   fs.writeFileSync(markerLogPath, JSON.stringify(markers, null, 2));
+}
+
+function persistMessages() {
+  fs.writeFileSync(messagesLogPath, JSON.stringify(messages, null, 2));
 }
 
 function persistConfig() {
@@ -74,6 +81,13 @@ function cleanupOldMarkers() {
   const before = markers.length;
   markers = markers.filter((m) => new Date(m.time).getTime() >= cutoff);
   if (markers.length !== before) persistMarkers();
+}
+
+function cleanupOldMessages() {
+  const cutoff = Date.now() - retentionMs;
+  const before = messages.length;
+  messages = messages.filter((m) => new Date(m.time).getTime() >= cutoff);
+  if (messages.length !== before) persistMessages();
 }
 
 function isHex(value) {
@@ -120,8 +134,21 @@ function decodedKeys(decodedPacket) {
   return keys.filter(Boolean).map((k) => String(k).toLowerCase().trim());
 }
 
-function packetMatchesKeys(decodedPacket) {
+function buildKeyStore() {
+  return MeshCorePacketDecoder.createKeyStore({ channelSecrets: [...channelKeys] });
+}
+
+function packetMatchesKeys(decodedPacket, keyStore) {
   if (channelKeys.size === 0) return false;
+
+  // GroupText packets use a 1-byte channelHash (first byte of SHA256 of the channel secret).
+  // Compare it via the keyStore rather than against the raw key strings directly.
+  const gtPayload = decodedPacket?.payload?.decoded;
+  if (gtPayload?.channelHash !== undefined && keyStore) {
+    if (keyStore.hasChannelKey(gtPayload.channelHash)) return true;
+  }
+
+  // For all other packet types (Advert, etc.) match via publicKey / sourceHash / etc.
   return decodedKeys(decodedPacket).some((key) => channelKeys.has(key));
 }
 
@@ -157,6 +184,19 @@ function pushMarker({ lat, lon, user, time, topic }) {
 
   cleanupOldMarkers();
   persistMarkers();
+}
+
+function pushMessage({ user, time, topic, message }) {
+  messages.push({
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    user,
+    time,
+    topic,
+    message
+  });
+
+  cleanupOldMessages();
+  persistMessages();
 }
 
 function buildMqttUrl() {
@@ -202,44 +242,58 @@ function startMqtt() {
       return;
     }
 
+    // Build a keyStore from configured channel secrets so GroupText packets can be
+    // both matched (via channelHash) and decrypted in a single decode call.
+    const keyStore = buildKeyStore();
+
     let decoded;
     try {
-      decoded = MeshCorePacketDecoder.decode(packetHex);
+      decoded = MeshCorePacketDecoder.decode(packetHex, { keyStore });
     } catch {
       console.log('[MQTT ignored] meshcore decode failed');
       return;
     }
 
-    if (!packetMatchesKeys(decoded)) {
+    if (!packetMatchesKeys(decoded, keyStore)) {
       console.log('[MQTT ignored] packet does not match configured channel keys');
       return;
     }
 
     const location = locationFromDecoded(decoded);
-    if (!location) {
-      console.log('[MQTT ignored] no location in decoded payload');
-      return;
-    }
-
     const payload = decoded.payload?.decoded || {};
-    pushMarker({
-      lat: location.lat,
-      lon: location.lon,
-      user: payload.decrypted?.sender || payload.sender || payload.sourceHash || payload.publicKey || 'unknown-user',
-      time: getTime(payload.decrypted?.timestamp ?? payload.timestamp),
-      topic
-    });
 
-    console.log('[MQTT marker saved]', { topic, lat: location.lat, lon: location.lon });
+    if (location) {
+      pushMarker({
+        lat: location.lat,
+        lon: location.lon,
+        user: payload.decrypted?.sender || payload.sender || payload.sourceHash || payload.publicKey || 'unknown-user',
+        time: getTime(payload.decrypted?.timestamp ?? payload.timestamp),
+        topic
+      });
+      console.log('[MQTT marker saved]', { topic, lat: location.lat, lon: location.lon });
+    } else if (payload.decrypted) {
+      // GroupText: no location but successfully decrypted — save as a message.
+      pushMessage({
+        user: payload.decrypted.sender || 'unknown-user',
+        time: getTime(payload.decrypted.timestamp),
+        topic,
+        message: payload.decrypted.message || ''
+      });
+      console.log('[MQTT grouptext saved]', { topic, user: payload.decrypted.sender });
+    } else {
+      console.log('[MQTT ignored] no location and no decrypted content');
+    }
   });
 
   client.on('error', (err) => console.error('mqtt error', err.message));
 }
 
 cleanupOldMarkers();
+cleanupOldMessages();
 persistMarkers();
+persistMessages();
 persistConfig();
-setInterval(cleanupOldMarkers, 60 * 60 * 1000);
+setInterval(() => { cleanupOldMarkers(); cleanupOldMessages(); }, 60 * 60 * 1000);
 startMqtt();
 
 app.use(express.json());
@@ -248,6 +302,11 @@ app.use(express.static(__dirname));
 app.get('/api/markers', (_req, res) => {
   cleanupOldMarkers();
   res.json({ markers: markers.slice().sort((a, b) => new Date(b.time) - new Date(a.time)) });
+});
+
+app.get('/api/messages', (_req, res) => {
+  cleanupOldMessages();
+  res.json({ messages: messages.slice().sort((a, b) => new Date(b.time) - new Date(a.time)) });
 });
 
 app.get('/api/config', (_req, res) => {

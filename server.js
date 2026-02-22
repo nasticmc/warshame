@@ -109,7 +109,13 @@ function extractPacketHex(parsed) {
 
 function decodedKeys(decodedPacket) {
   const payload = decodedPacket?.payload?.decoded;
-  const keys = [payload?.publicKey, payload?.senderPublicKey, payload?.sourceHash, payload?.destinationHash];
+  const keys = [
+    payload?.publicKey,
+    payload?.senderPublicKey,
+    payload?.sourceHash,
+    payload?.destinationHash,
+    payload?.channelHash,
+  ];
   if (Array.isArray(decodedPacket?.path)) keys.push(...decodedPacket.path);
   return keys.filter(Boolean).map((k) => String(k).toLowerCase().trim());
 }
@@ -133,7 +139,9 @@ function locationFromDecoded(decodedPacket) {
 }
 
 function getTime(value) {
-  const parsed = value ? new Date(value) : new Date();
+  // Decoder timestamps are Unix seconds (number); Date() expects milliseconds.
+  const ms = typeof value === 'number' ? value * 1000 : value;
+  const parsed = ms ? new Date(ms) : new Date();
   return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
 }
 
@@ -217,8 +225,8 @@ function startMqtt() {
     pushMarker({
       lat: location.lat,
       lon: location.lon,
-      user: payload.sender || payload.sourceHash || payload.publicKey || 'unknown-user',
-      time: getTime(payload.timestamp),
+      user: payload.decrypted?.sender || payload.sender || payload.sourceHash || payload.publicKey || 'unknown-user',
+      time: getTime(payload.decrypted?.timestamp ?? payload.timestamp),
       topic
     });
 

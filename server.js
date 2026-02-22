@@ -12,6 +12,12 @@ const app = express();
 const port = Number(process.env.PORT || 8080);
 const mqttUrl = process.env.MESHCORE_MQTT_URL || '';
 const mqttTopic = process.env.MESHCORE_MQTT_TOPIC || 'meshcore/#';
+const mqttBroker = process.env.MQTT_BROKER || '';
+const mqttPort = process.env.MQTT_PORT || '';
+const mqttProtocol = process.env.MQTT_PROTOCOL || 'ws';
+const mqttPath = process.env.MQTT_PATH || '/mqtt';
+const mqttUsername = process.env.MQTT_USERNAME || '';
+const mqttPassword = process.env.MQTT_PASSWORD || '';
 const wardriveKeys = new Set(
   (process.env.MESHCORE_WARDRIVE_CHANNEL_KEYS || '')
     .split(',')
@@ -101,13 +107,27 @@ function pushMarker({ lat, lon, user, time, topic }) {
   persistMarkers();
 }
 
+function buildMqttUrl() {
+  if (mqttUrl) return mqttUrl;
+  if (!mqttBroker) return '';
+  const portPart = mqttPort ? `:${mqttPort}` : '';
+  const pathPart = mqttProtocol.startsWith('ws') ? mqttPath : '';
+  return `${mqttProtocol}://${mqttBroker}${portPart}${pathPart}`;
+}
+
 function startMqtt() {
-  if (!mqttUrl) {
-    console.warn('MESHCORE_MQTT_URL not set; server running without MQTT subscription');
+  const resolvedMqttUrl = buildMqttUrl();
+  if (!resolvedMqttUrl) {
+    console.warn('No MQTT settings found. Set MESHCORE_MQTT_URL or MQTT_BROKER (+ optional MQTT_PORT/protocol/path).');
     return;
   }
 
-  const client = mqtt.connect(mqttUrl, { reconnectPeriod: 3000, clean: true });
+  const client = mqtt.connect(resolvedMqttUrl, {
+    reconnectPeriod: 3000,
+    clean: true,
+    username: mqttUsername || undefined,
+    password: mqttPassword || undefined
+  });
   client.on('connect', () => {
     client.subscribe(mqttTopic, (err) => {
       if (err) console.error('subscribe failed', err.message);

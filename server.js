@@ -207,8 +207,18 @@ function buildMqttUrl() {
   return `${mqttProtocol}://${mqttBroker}${portPart}${pathPart}`;
 }
 
+const mqttStatus = {
+  connected: false,
+  brokerUrl: '',
+  packetsReceived: 0,
+  packetsDecoded: 0,
+  packetsMatched: 0,
+  lastReceivedAt: null,
+};
+
 function startMqtt() {
   const resolvedMqttUrl = buildMqttUrl();
+  mqttStatus.brokerUrl = resolvedMqttUrl;
   if (!resolvedMqttUrl) {
     console.warn('No MQTT settings found. Set MESHCORE_MQTT_URL or MQTT_BROKER (+ optional MQTT_PORT/protocol/path).');
     return;
@@ -222,6 +232,7 @@ function startMqtt() {
   });
 
   client.on('connect', () => {
+    mqttStatus.connected = true;
     console.log(`Connected to MQTT broker: ${resolvedMqttUrl}`);
     client.subscribe(mqttTopic, (err) => {
       if (err) {
@@ -232,14 +243,21 @@ function startMqtt() {
     });
   });
 
+  client.on('disconnect', () => { mqttStatus.connected = false; });
+  client.on('offline', () => { mqttStatus.connected = false; });
+
   client.on('message', (topic, payloadBuffer) => {
     const parsed = parsePayload(payloadBuffer);
-    console.log('[MQTT message received]', { topic, payload: parsed.raw });
+    mqttStatus.packetsReceived++;
+    mqttStatus.lastReceivedAt = new Date().toISOString();
+    console.log('[MQTT message received]', { topic, payload: parsed.raw.slice(0, 200) });
 
-    const packetHex = extractPacketHex(parsed);
+    // Try text/JSON extraction first; if nothing found, fall back to treating the
+    // raw buffer bytes as the packet directly (binary-format MQTT messages).
+    let packetHex = extractPacketHex(parsed);
     if (!packetHex) {
-      console.log('[MQTT ignored] no packet hex found');
-      return;
+      packetHex = payloadBuffer.toString('hex');
+      console.log('[MQTT] no text/JSON hex found, trying binary interpretation');
     }
 
     // Build a keyStore from configured channel secrets so GroupText packets can be
@@ -250,15 +268,24 @@ function startMqtt() {
     try {
       decoded = MeshCorePacketDecoder.decode(packetHex, { keyStore });
     } catch {
-      console.log('[MQTT ignored] meshcore decode failed');
+      console.log('[MQTT ignored] meshcore decode threw exception');
       return;
     }
+
+    if (!decoded.isValid) {
+      console.log('[MQTT ignored] meshcore decode produced invalid packet:', decoded.errors);
+      return;
+    }
+
+    mqttStatus.packetsDecoded++;
+    console.log('[MQTT decoded]', { payloadType: decoded.payloadType, isValid: decoded.isValid });
 
     if (!packetMatchesKeys(decoded, keyStore)) {
       console.log('[MQTT ignored] packet does not match configured channel keys');
       return;
     }
 
+    mqttStatus.packetsMatched++;
     const location = locationFromDecoded(decoded);
     const payload = decoded.payload?.decoded || {};
 
@@ -285,7 +312,10 @@ function startMqtt() {
     }
   });
 
-  client.on('error', (err) => console.error('mqtt error', err.message));
+  client.on('error', (err) => {
+    mqttStatus.connected = false;
+    console.error('mqtt error', err.message);
+  });
 }
 
 cleanupOldMarkers();
@@ -307,6 +337,23 @@ app.get('/api/markers', (_req, res) => {
 app.get('/api/messages', (_req, res) => {
   cleanupOldMessages();
   res.json({ messages: messages.slice().sort((a, b) => new Date(b.time) - new Date(a.time)) });
+});
+
+app.get('/api/status', (_req, res) => {
+  res.json({
+    mqtt: {
+      connected: mqttStatus.connected,
+      brokerUrl: mqttStatus.brokerUrl,
+      topic: mqttTopic,
+      packetsReceived: mqttStatus.packetsReceived,
+      packetsDecoded: mqttStatus.packetsDecoded,
+      packetsMatched: mqttStatus.packetsMatched,
+      lastReceivedAt: mqttStatus.lastReceivedAt,
+    },
+    markers: markers.length,
+    messages: messages.length,
+    channelKeys: [...channelKeys].sort(),
+  });
 });
 
 app.get('/api/config', (_req, res) => {

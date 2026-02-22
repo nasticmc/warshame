@@ -20,6 +20,13 @@
 
     <main>
       <aside class="panel">
+        <section class="card status-card">
+          <div id="mqttStatus" class="mqtt-status mqtt-status--unknown">
+            <span class="mqtt-dot"></span><span id="mqttStatusText">Connecting…</span>
+          </div>
+          <div id="mqttStats" class="mqtt-stats"></div>
+        </section>
+
         <section class="card">
           <h2>Decoder channel key</h2>
           <form id="channelForm" class="channel-form">

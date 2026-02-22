@@ -6,6 +6,9 @@ const channelStatus = document.getElementById('channelStatus');
 const channelKeysList = document.getElementById('channelKeys');
 const decodedMsgCountEl = document.getElementById('decodedMsgCount');
 const decodedMsgList = document.getElementById('decodedMsgList');
+const mqttStatusEl = document.getElementById('mqttStatus');
+const mqttStatusTextEl = document.getElementById('mqttStatusText');
+const mqttStatsEl = document.getElementById('mqttStats');
 
 const map = L.map('map').setView([-37.8136, 144.9631], 11);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -103,6 +106,18 @@ async function refreshMessages() {
   renderMessages(data.messages || []);
 }
 
+async function refreshStatus() {
+  const response = await fetch('/api/status');
+  if (!response.ok) return;
+  const { mqtt } = await response.json();
+
+  mqttStatusEl.className = `mqtt-status mqtt-status--${mqtt.connected ? 'connected' : 'disconnected'}`;
+  mqttStatusTextEl.textContent = mqtt.connected
+    ? `Connected · ${mqtt.topic}`
+    : `Disconnected · ${mqtt.brokerUrl || 'no broker configured'}`;
+  mqttStatsEl.textContent = `rx ${mqtt.packetsReceived}  decoded ${mqtt.packetsDecoded}  matched ${mqtt.packetsMatched}${mqtt.lastReceivedAt ? '  · last: ' + new Date(mqtt.lastReceivedAt).toLocaleTimeString() : ''}`;
+}
+
 async function refreshConfig() {
   const response = await fetch('/api/config');
   if (!response.ok) return;
@@ -133,11 +148,11 @@ channelForm.addEventListener('submit', async (event) => {
 
 async function refresh() {
   try {
-    await Promise.all([refreshMarkers(), refreshConfig(), refreshMessages()]);
+    await Promise.all([refreshMarkers(), refreshConfig(), refreshMessages(), refreshStatus()]);
   } catch {
     channelStatus.textContent = 'Connection issue while refreshing data.';
   }
 }
 
 refresh();
-setInterval(() => Promise.all([refreshMarkers(), refreshMessages()]), 5000);
+setInterval(() => Promise.all([refreshMarkers(), refreshMessages(), refreshStatus()]), 5000);
